@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
+using OpenLibraryAuthors.Models;
 
-namespace OpenLibraryActors.Messages
+namespace OpenLibraryAuthors.Messages
 {
     //HTTP server -> Coordinator: korisnik trazi autora
     public record SearchAuthorRequest(string AuthorName);
@@ -11,7 +12,7 @@ namespace OpenLibraryActors.Messages
         string Title,
         int? Year,
         string[] Languages, 
-        double? Raitng);
+        double? Rating);
 
     //Coordinator AuthorActor : zatrazi trenutno stanje
     public record GetAuthorSummary(string AuthorName);

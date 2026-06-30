@@ -1,6 +1,76 @@
-﻿namespace OpenLibraryAuthors.Reactive;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Reactive.Linq;
+using System.Net.Http.Json;
+using System.Reactive.Concurrency;
+using Akka.Actor;
+using OpenLibraryAuthors.Logging;
+using OpenLibraryAuthors.Messages;
+using OpenLibraryAuthors.Models;
 
-public class OpenLibraryService
-{
+namespace OpenLibraryAuthors.Reactive;
+
+/* Rx subscribe vraca IDisposable, dugme za gasenje pipline-a
+Ukoliko se ne sacuva referenca i ne pozove se Dispose() 
+pipline nastavlja da radi cak i kada nam servis ne treba*/
     
+public class OpenLibraryService : IDisposable
+{
+    private readonly HttpClient _http = new();
+    private readonly ConcurrentDictionary<string, byte> _trackedAuthors = new();
+    private readonly ConcurrentDictionary<string, IActorRef> _authorActors = new();
+    private readonly IDisposable _subscription;
+
+    public OpenLibraryService(TimeSpan? interval = null)
+    {
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("OpenLibraryActors/1.0");
+        
+        _subscription = Observable
+            .Interval(interval ?? TimeSpan.FromSeconds(30))
+            .SelectMany(_ => _trackedAuthors.Keys.ToObservable())
+            .SelectMany(author => FetchBooksObservable(author))
+            .Where(item => !string.IsNullOrWhiteSpace(item.book.Title))
+            .Select(item => new BookMessage(
+                item.author,
+                item.book.Title!,
+                item.book.FirstPublishYear,
+                item.book.Languages ?? [],
+                item.book.RatingsAverage
+            ))
+            .ObserveOn(TaskPoolScheduler.Default)
+            .Subscribe(msg =>
+                {
+                    if (_authorActors.TryGetValue(msg.Author, out var actor))
+                        actor.Tell(msg);
+                },
+                ex => Logger.Instance.Error($"[Rx] Greška u pipeline-u: {ex.Message}")
+            );
+    }
+
+    private IObservable<(string author, OpenLibraryDoc book)> FetchBooksObservable(string author)
+    {
+        return Observable
+            .FromAsync(() => FetchBooksAsync(author))
+            .SelectMany(books => books.Select(b => (author, b)))
+            .Catch<(string, OpenLibraryDoc), Exception>(ex =>
+            {
+                Logger.Instance.Rx($"[Rx] Greška pri pozivu API za '{author}' : {ex.Message}");
+                return Observable.Empty<(string, OpenLibraryDoc)>();
+            });
+    }
+
+    private async Task<List<OpenLibraryDoc>> FetchBooksAsync(string author)
+    {
+        var url = $"https://openlibrary.org/search.json?author={Uri.EscapeDataString(author)}&limit=50";
+        Logger.Instance.Rx($"[Rx] Pozivam API za autora: {author}");
+
+        var response = await _http.GetFromJsonAsync<OpenLibrarySearchResponse>(url);
+        return response?.Docs ?? [];
+    }
+
+    public void Dispose()
+    {
+        _subscription.Dispose();
+        _http.Dispose();
+    }
 }

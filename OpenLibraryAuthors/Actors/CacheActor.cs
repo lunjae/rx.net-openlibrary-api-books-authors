@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using Akka.Actor;
-using OpenLibraryActors.Logging;
-using OpenLibraryActors.Messages;
+using OpenLibraryAuthors.Logging;
+using OpenLibraryAuthors.Messages;
 
-namespace OpenLibraryActors.Actors
+namespace OpenLibraryAuthors.Actors
 {
     public class CacheActor : ReceiveActor
     {

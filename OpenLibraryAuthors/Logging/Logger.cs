@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace OpenLibraryActors.Logging
+namespace OpenLibraryAuthors.Logging
 {
     public class Logger
     {
