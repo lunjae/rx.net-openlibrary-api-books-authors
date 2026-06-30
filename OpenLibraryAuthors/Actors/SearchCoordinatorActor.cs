@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using Akka.Actor;
-using Microsoft.VisualBasic;
 using OpenLibraryAuthors.Logging;
 using OpenLibraryAuthors.Messages;
+using OpenLibraryAuthors.Reactive;
 
 namespace OpenLibraryAuthors.Actors
 {
@@ -10,17 +10,22 @@ namespace OpenLibraryAuthors.Actors
     {
         //referenca na aktora/ adresa preko koje mu saljemo poruke
         private readonly IActorRef _cacheActor;
+        
+        private readonly OpenLibraryService _rxService;
+        
         //Mapa (imaautora, ref na njegov actor)
         private readonly Dictionary<string, IActorRef> _authorActors = new();
+        
         //Lista autora koje pratimo
         private readonly HashSet<string> _trackedAuthors = new();
         
         private readonly Logger _logger = Logger.Instance;
      
         
-        public SearchCoordinatorActor(IActorRef cacheActor)
+        public SearchCoordinatorActor(IActorRef cacheActor, OpenLibraryService rxService)
         {
             _cacheActor = cacheActor;
+            _rxService = rxService;
 
             Receive<SearchAuthorRequest>(msg => HandleSearch(msg));
             Receive<BookMessage>(msg => HandleBookMessage(msg));
@@ -30,24 +35,33 @@ namespace OpenLibraryAuthors.Actors
         private void HandleSearch(SearchAuthorRequest msg)
         {
             string author = msg.AuthorName;
-            _logger.Actor($"[Coordinator] Zahtev za autora: {author}");
-            
-            //Dodaj autora u pracene ako vec nije 
-            if (!_trackedAuthors.Contains(author))
-            {
-                _trackedAuthors.Add(author);
-                _logger.Actor($"[Coordinator] Novi praceni autor: {author}");
-            }
-            
-            //Pronadji ili kreiraj AuthorActor za ovog autora
-            IActorRef authorActor = GetOrCreateAuthorActor(author);
-            
-            //Zapamti ko je trazio (HTTP server) da mu vratimo odgovor
             IActorRef originalSender = Sender;
-            
-            //Pitaj AuthroActor-a za trenutno stanje 
-            authorActor.Ask<AuthorSummary>(new GetAuthorSummary(author))
-                .PipeTo(originalSender);
+
+            // 1) Pitaj cache prvo
+            _cacheActor.Ask<object>(new CacheGet(author), TimeSpan.FromSeconds(2))
+                .ContinueWith(t =>
+                {
+                    if (t.Result is CacheHit hit)
+                    {
+                        _logger.Cache($"[Coordinator] Cache hit za {author}");
+                        originalSender.Tell(hit.Result);
+                        return;
+                    }
+
+                    // 2) Miss — kreiraj/registruj autora i vrati stanje
+                    IActorRef authorActor = GetOrCreateAuthorActor(author);
+                    if (_trackedAuthors.Add(author))
+                        _rxService.Track(author, authorActor);
+
+                    authorActor.Ask<AuthorSummary>(new GetAuthorSummary(author))
+                        .ContinueWith(summaryTask =>
+                        {
+                            var summary = summaryTask.Result;
+                            if (summary.Status == "Ok")
+                                _cacheActor.Tell(new CacheSet(author, summary));
+                            originalSender.Tell(summary);
+                        });
+                });
         }
         
         private IActorRef GetOrCreateAuthorActor(string author)
@@ -56,10 +70,11 @@ namespace OpenLibraryAuthors.Actors
                 return _authorActors[author];
 
             IActorRef actor = Context.ActorOf(
-                Props.Create(() => new AuthorActor(author)),
+                AuthorActor.CreateProps(author),
                 $"author-{SanitizeName(author)}");
 
             _authorActors[author] = actor;
+            _rxService.Track(author, actor);
             _logger.Actor($"[Coordinator] Kreiran AuthorActor za: {author}");
             return actor;
         }
@@ -71,10 +86,13 @@ namespace OpenLibraryAuthors.Actors
             authorActor.Forward(msg);
         }
 
-        private string SanitizeName(string name)
-        {
-            return name.Replace(" ", "_").Replace(".", "_").Replace("&", "_");
-        }
+        private static string SanitizeName(string name)                                                                                                                                                                                                                                                              
+        {                                                                                                                                                                                                                                                                                                            
+            var sb = new System.Text.StringBuilder();                                                                                                                                                                                                                                                                
+            foreach (var c in name)                                                                                                                                                                                                                                                                                  
+                sb.Append(char.IsLetterOrDigit(c) && c < 128 ? c : '_');                                                                                                                                                                                                                                             
+            return sb.ToString().Trim('_');                                                                                                                                                                                                                                                                          
+        } 
         
     }
 }

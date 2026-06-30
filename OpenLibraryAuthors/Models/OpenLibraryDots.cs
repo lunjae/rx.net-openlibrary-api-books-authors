@@ -21,6 +21,6 @@ public class OpenLibraryDoc
     [JsonPropertyName("language")]
     public string[]? Languages { get; set; }
     
-    [JsonPropertyName("rating_average")]
+    [JsonPropertyName("ratings_average")]
     public double? RatingsAverage { get; set; }
 }

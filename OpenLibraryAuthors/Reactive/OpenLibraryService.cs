@@ -27,7 +27,8 @@ public class OpenLibraryService : IDisposable
         
         _subscription = Observable
             .Interval(interval ?? TimeSpan.FromSeconds(30))
-            .SelectMany(_ => _trackedAuthors.Keys.ToObservable())
+            //Za svaki tick uzmi snapshot sbih pracenih autora
+            .SelectMany(_ => _authorActors.Keys.ToObservable())
             .SelectMany(author => FetchBooksObservable(author))
             .Where(item => !string.IsNullOrWhiteSpace(item.book.Title))
             .Select(item => new BookMessage(
@@ -37,7 +38,7 @@ public class OpenLibraryService : IDisposable
                 item.book.Languages ?? [],
                 item.book.RatingsAverage
             ))
-            .ObserveOn(TaskPoolScheduler.Default)
+            .ObserveOn(TaskPoolScheduler.Default)// Rx scheduler
             .Subscribe(msg =>
                 {
                     if (_authorActors.TryGetValue(msg.Author, out var actor))
@@ -45,6 +46,33 @@ public class OpenLibraryService : IDisposable
                 },
                 ex => Logger.Instance.Error($"[Rx] Greška u pipeline-u: {ex.Message}")
             );
+    }
+    //Coordinator ovo zove kad dodje novi autor
+    public void Track(string author, IActorRef authorActor)
+    {
+        if (_authorActors.TryAdd(author, authorActor))
+        {
+            Logger.Instance.Rx($"[Rx] Pocinje pracenje autora: {author}");
+            // Odmah pokreni prvi fetch da korisnik ne čeka 30s
+            _ = TriggerImmediateFetchAsync(author, authorActor);
+        }
+    }
+    private async Task TriggerImmediateFetchAsync(string author, IActorRef actor)
+    {
+        try
+        {
+            var books = await FetchBooksAsync(author);
+            foreach (var b in books.Where(b => !string.IsNullOrWhiteSpace(b.Title)))
+            {
+                actor.Tell(new BookMessage(
+                    author, b.Title!, b.FirstPublishYear,
+                    b.Languages ?? [], b.RatingsAverage));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error($"[Rx] Inicijalni fetch '{author}': {ex.Message}");
+        }
     }
 
     private IObservable<(string author, OpenLibraryDoc book)> FetchBooksObservable(string author)
@@ -61,7 +89,7 @@ public class OpenLibraryService : IDisposable
 
     private async Task<List<OpenLibraryDoc>> FetchBooksAsync(string author)
     {
-        var url = $"https://openlibrary.org/search.json?author={Uri.EscapeDataString(author)}&limit=50";
+        var url = $"https://openlibrary.org/search.json?author={Uri.EscapeDataString(author)}&limit=50&fields=title,first_publish_year,languages,ratings_average";
         Logger.Instance.Rx($"[Rx] Pozivam API za autora: {author}");
 
         var response = await _http.GetFromJsonAsync<OpenLibrarySearchResponse>(url);
