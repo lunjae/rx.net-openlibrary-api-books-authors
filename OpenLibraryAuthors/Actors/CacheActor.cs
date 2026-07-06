@@ -22,6 +22,7 @@ namespace OpenLibraryAuthors.Actors
 
             Receive<CacheGet>(msg => HandleGet(msg));
             Receive<CacheSet>(msg => HandleSet(msg));
+            Receive<CacheInvalidate>(msg => HandleInvalidate(msg));
         }
 
 
@@ -43,6 +44,15 @@ namespace OpenLibraryAuthors.Actors
             Sender.Tell(new CacheHit(result));
         }
 
+        private void HandleInvalidate(CacheInvalidate msg)
+        {
+            if (_cache.Remove(msg.Key))
+            {
+                _lruOrder.Remove(msg.Key);
+                _logger.Cache($"INVALIDATED - {msg.Key}");
+            }
+        }
+
         private void HandleSet(CacheSet msg)
         {
             //Ako postoji menjamo vrednost i stavljamo ga na pocetak
@@ -56,7 +66,7 @@ namespace OpenLibraryAuthors.Actors
             //Ako je pun izbacujemo najstariji
             if (_cache.Count >= _maxSize)
             {
-                string oldest =  _lruOrder.Last.Value;
+                string oldest =  _lruOrder.Last!.Value;
                 _lruOrder.RemoveLast();
                 _cache.Remove(oldest);
                 _logger.Cache($"Evicted - {oldest}");

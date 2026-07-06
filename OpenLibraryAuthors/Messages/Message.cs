@@ -38,5 +38,6 @@ namespace OpenLibraryAuthors.Messages
     public record CacheHit(AuthorSummary Result);
     public record CacheMiss;
     public record CacheSet(string Key, AuthorSummary Result);
+    public record CacheInvalidate(string Key);
     
 }

@@ -43,13 +43,13 @@ namespace OpenLibraryAuthors
                 Akka.Configuration.ConfigurationFactory.ParseString(hocon));
 
             logger.Info("ActorSystem kreiran sa custom dispatcher-om.");
-            
-            OpenLibraryService rxService = new OpenLibraryService();
-            logger.Info("Rx servis kreiran.");
 
             IActorRef cacheActor = actorSystem.ActorOf(
                 Props.Create(() => new CacheActor(50)),
                 "cache-actor");
+
+            OpenLibraryService rxService = new OpenLibraryService(cacheActor);
+            logger.Info("Rx servis kreiran.");
 
             IActorRef coordinator = actorSystem.ActorOf(
                 Props.Create(() => new SearchCoordinatorActor(cacheActor, rxService)),

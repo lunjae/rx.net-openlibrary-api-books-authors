@@ -62,7 +62,7 @@ namespace OpenLibraryAuthors.Server
         {
             try
             {
-                string rawUrl = context.Request.Url.AbsolutePath;
+                string rawUrl = context.Request.Url?.AbsolutePath ?? "/";
                 string author = RequestParser.ParseAuthorName(rawUrl);
 
                 if (string.IsNullOrEmpty(author))

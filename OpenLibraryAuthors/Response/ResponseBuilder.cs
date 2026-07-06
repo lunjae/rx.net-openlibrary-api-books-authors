@@ -24,11 +24,17 @@ public static class ResponseBuilder
                 """;
             }));
 
+        // Ako podaci jos nisu stigli, stranica se sama osvezava svakih 5s
+        var autoRefresh = summary.Status != "Ok"
+            ? "<meta http-equiv='refresh' content='5'>"
+            : "";
+
         return $$"""
             <!DOCTYPE html>
             <html lang="sr">
             <head>
                 <meta charset="UTF-8">
+                {{autoRefresh}}
                 <title>OpenLibrary — {{Escape(summary.Author)}}</title>
                 <style>
                     body { font-family: Segoe UI, sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; background: #f5f5f5; }

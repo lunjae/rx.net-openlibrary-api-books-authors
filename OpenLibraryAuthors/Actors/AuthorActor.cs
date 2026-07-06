@@ -51,10 +51,6 @@ public class AuthorActor : ReceiveActor
                     msg.Rating
                 );
             }
-
-            Logger.Instance.Actor(
-                $"[AuthorActor: {_authorName}] Ažurirana knjiga: '{msg.Title}' Godina: {msg.Year}, jezik: " +
-                $"+{msg.Languages.Length}, ocena: {msg.Rating}");
         });
 
         Receive<GetAuthorSummary>(_ =>
