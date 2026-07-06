@@ -1,6 +1,8 @@
 ﻿namespace OpenLibraryAuthors.Models;
 
-public class BookInfo
-{
-    
-}
+public record BookInfo(
+    string Title,
+    int? Year, 
+    string[] Languages,
+    double? Rating
+);
