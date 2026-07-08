@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
@@ -17,7 +17,7 @@ namespace OpenLibraryAuthors
             logger.Info("Pokretanje OpenLibrary servera...");
 
             using CancellationTokenSource cts = new CancellationTokenSource();
-            
+
             string hocon = @"
                     akka {
                         actor {
@@ -44,19 +44,15 @@ namespace OpenLibraryAuthors
 
             logger.Info("ActorSystem kreiran sa custom dispatcher-om.");
 
-            IActorRef cacheActor = actorSystem.ActorOf(
-                Props.Create(() => new CacheActor(50)),
-                "cache-actor");
-
-            OpenLibraryService rxService = new OpenLibraryService(cacheActor);
+            OpenLibraryService rxService = new OpenLibraryService();
             logger.Info("Rx servis kreiran.");
 
             IActorRef coordinator = actorSystem.ActorOf(
-                Props.Create(() => new SearchCoordinatorActor(cacheActor, rxService)),
+                Props.Create(() => new SearchCoordinatorActor(rxService)),
                 "search-coordinator");
 
-            logger.Info("Aktori kreirani: CacheActor i SearchCoordinatorActor.");
-            
+            logger.Info("SearchCoordinatorActor kreiran.");
+
             string prefix = "http://localhost:5050/";
             HttpServer server = new HttpServer(prefix, coordinator);
 
@@ -64,8 +60,8 @@ namespace OpenLibraryAuthors
 
             logger.Info("HTTP server pokrenut. Format zahteva: http://localhost:5050/author=Ime");
             logger.Info("Pritisnite Q za zaustavljanje servera.");
-            
-            
+
+
             while (true)
             {
                 ConsoleKeyInfo key = Console.ReadKey(intercept: true);

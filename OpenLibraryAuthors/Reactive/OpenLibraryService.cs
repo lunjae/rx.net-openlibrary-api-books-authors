@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reactive.Linq;
 using System.Net.Http.Json;
@@ -10,20 +10,18 @@ using OpenLibraryAuthors.Models;
 
 namespace OpenLibraryAuthors.Reactive;
 
-/* Rx subscribe vraca IDisposable, dugme za gasenje pipline-a
-Ukoliko se ne sacuva referenca i ne pozove se Dispose() 
-pipline nastavlja da radi cak i kada nam servis ne treba*/
-    
+/* Rx subscribe vraca IDisposable, dugme za gasenje pipeline-a.
+   Ukoliko se ne sacuva referenca i ne pozove se Dispose()
+   pipeline nastavlja da radi cak i kada nam servis ne treba. */
+
 public class OpenLibraryService : IDisposable
 {
     private readonly HttpClient _http = new();
     private readonly ConcurrentDictionary<string, IActorRef> _authorActors = new();
-    private readonly IActorRef _cacheActor;
     private readonly IDisposable _subscription;
 
-    public OpenLibraryService(IActorRef cacheActor, TimeSpan? interval = null)
+    public OpenLibraryService(TimeSpan? interval = null)
     {
-        _cacheActor = cacheActor;
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("OpenLibraryActors/1.0");
 
         _subscription = Observable
@@ -42,8 +40,6 @@ public class OpenLibraryService : IDisposable
                 .Do(lista =>
                 {
                     Logger.Instance.Rx($"[Rx] Osvezavanje '{author}': {lista.Count} knjiga.");
-                    // Novi podaci stizu — stari kesiran odgovor vise nije validan
-                    _cacheActor.Tell(new CacheInvalidate(author));
                 })
                 .SelectMany(lista => lista)
             )
@@ -57,6 +53,7 @@ public class OpenLibraryService : IDisposable
                 ex => Logger.Instance.Error($"[Rx] Greška u pipeline-u: {ex.Message}")
             );
     }
+
     // Coordinator ovo zove kad dodje novi autor.
     // Vraca Task inicijalnog fetcha - koordinator ceka na njega pre nego
     // sto pita actora za stanje, da korisnik ne dobije prazan odgovor.
@@ -70,6 +67,7 @@ public class OpenLibraryService : IDisposable
         }
         return Task.FromResult(false);
     }
+
     private async Task TriggerImmediateFetchAsync(string author, IActorRef actor)
     {
         try
