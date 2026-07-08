@@ -23,12 +23,9 @@ public class AuthorActor : ReceiveActor
             // Ako knjiga postoji u stanju radi merge, ako ne overwrite
             if (_books.TryGetValue(key, out var existing))
             {
-                var mergedRating = (existing.Rating, msg.Rating) switch
-                {
-                    (null, var r) => r,
-                    (var r, null) => r,
-                    (var r1, var r2) => (r1 + r2) / 2.0
-                };
+                // Uvek uzimamo svezi rating sa API-ja; cuvamo stari samo ako novi nedostaje.
+                // Prosecivanje bi kumulativno driftovalo jer r1 vec sadrzi prethodne merge-ove.
+                var mergedRating = msg.Rating ?? existing.Rating;
 
                 var mergedLanguages = existing.Languages
                     .Union(msg.Languages)

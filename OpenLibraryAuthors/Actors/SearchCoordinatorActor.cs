@@ -94,7 +94,8 @@ namespace OpenLibraryAuthors.Actors
             var sb = new System.Text.StringBuilder();
             foreach (var c in name)
                 sb.Append(char.IsLetterOrDigit(c) && c < 128 ? c : '_');
-            return sb.ToString().Trim('_');
+            var result = sb.ToString().Trim('_');
+            return string.IsNullOrEmpty(result) ? "author" : result;
         }
     }
 }
