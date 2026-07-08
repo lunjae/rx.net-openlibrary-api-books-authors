@@ -22,7 +22,6 @@ namespace OpenLibraryAuthors.Actors
             _rxService = rxService;
 
             Receive<SearchAuthorRequest>(msg => HandleSearch(msg));
-            Receive<BookMessage>(msg => HandleBookMessage(msg));
             Receive<FetchDone>(msg => HandleFetchDone(msg));
             Receive<SummaryResponse>(msg => HandleSummaryResponse(msg));
         }
@@ -88,12 +87,6 @@ namespace OpenLibraryAuthors.Actors
             _authorActors[author] = actor;
             _logger.Actor($"[Coordinator] Kreiran AuthorActor za: {author}");
             return actor;
-        }
-
-        private void HandleBookMessage(BookMessage msg)
-        {
-            IActorRef authorActor = GetOrCreateAuthorActor(msg.Author);
-            authorActor.Forward(msg);
         }
 
         private static string SanitizeName(string name)

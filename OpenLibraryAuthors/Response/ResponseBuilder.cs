@@ -73,15 +73,6 @@ public static class ResponseBuilder
             """;
     }
 
-    public static string BuildErrorPage(string message) => $"""
-        <!DOCTYPE html>
-        <html><head><meta charset="UTF-8"><title>Greška</title></head>
-        <body style="font-family:sans-serif;max-width:600px;margin:40px auto">
-        <h2>⚠️ Greška</h2><p>{Escape(message)}</p>
-        <p><a href="/">Nazad</a></p>
-        </body></html>
-        """;
-
     private static string Escape(string s) =>
         s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
 }

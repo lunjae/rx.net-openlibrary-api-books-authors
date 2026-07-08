@@ -30,7 +30,6 @@ namespace OpenLibraryAuthors.Logging
         public void Info(string message)  => Log("INFO ", message);
         public void Warn(string message)  => Log("WARN ", message);
         public void Error(string message) => Log("ERROR", message);
-        public void Cache(string message) => Log("CACHE", message);
         public void Rx(string message)    => Log("RX   ", message);
         public void Actor(string message) => Log("ACTOR", message);
     }

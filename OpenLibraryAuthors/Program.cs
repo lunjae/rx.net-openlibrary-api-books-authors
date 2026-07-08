@@ -75,7 +75,6 @@ namespace OpenLibraryAuthors
             // Graceful shutdown
             cts.Cancel();
             rxService.Dispose();
-
             await CoordinatedShutdown.Get(actorSystem).Run(CoordinatedShutdown.ClrExitReason.Instance);
 
             try
